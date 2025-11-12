@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Dashboard DHT22</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+  <h1>🌡️ Dashboard Monitoring DHT22</h1>
+  <div class="cards">
+    <div class="card">
+      <h2>Suhu</h2>
+      <div id="suhu" class="value">-- °C</div>
+    </div>
+    <div class="card">
+      <h2>Kelembapan</h2>
+      <div id="kelembapan" class="value">-- %</div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
