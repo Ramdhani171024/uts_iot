@@ -1,24 +1,309 @@
-<!DOCTYPE html>
-<html lang="id">
+<!doctype html>
+<html>
 <head>
-  <meta charset="UTF-8">
-  <title>Dashboard DHT22</title>
-  <link rel="stylesheet" href="style.css">
-  <script src="/socket.io/socket.io.js"></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IoT Data Viewer</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      color: white;
+      text-align: center;
+      margin-bottom: 30px;
+      font-size: 2.5em;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+      animation: fadeIn 0.6s ease-in;
+    }
+
+    .controls {
+      display: flex;
+      gap: 15px;
+      margin-bottom: 25px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    button {
+      background: white;
+      color: #667eea;
+      border: none;
+      padding: 12px 30px;
+      border-radius: 25px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    }
+
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+      background: #f0f0f0;
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    .latest-card {
+      background: white;
+      border-radius: 20px;
+      padding: 25px;
+      margin-bottom: 25px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+      animation: slideDown 0.5s ease-out;
+    }
+
+    .latest-card h2 {
+      color: #667eea;
+      margin-bottom: 20px;
+      font-size: 1.5em;
+    }
+
+    .sensor-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin-top: 15px;
+    }
+
+    .sensor-item {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 20px;
+      border-radius: 15px;
+      text-align: center;
+      transition: transform 0.3s ease;
+    }
+
+    .sensor-item:hover {
+      transform: scale(1.05);
+    }
+
+    .sensor-label {
+      font-size: 0.9em;
+      opacity: 0.9;
+      margin-bottom: 8px;
+    }
+
+    .sensor-value {
+      font-size: 2em;
+      font-weight: bold;
+    }
+
+    .sensor-unit {
+      font-size: 0.8em;
+      opacity: 0.8;
+    }
+
+    .table-card {
+      background: white;
+      border-radius: 20px;
+      padding: 25px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+      animation: fadeIn 0.7s ease-in;
+      overflow-x: auto;
+    }
+
+    .table-card h2 {
+      color: #667eea;
+      margin-bottom: 20px;
+      font-size: 1.5em;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 15px;
+      text-align: left;
+      font-weight: 600;
+      position: sticky;
+      top: 0;
+    }
+
+    td {
+      padding: 12px 15px;
+      border-bottom: 1px solid #f0f0f0;
+    }
+
+    tr:hover {
+      background: #f8f9ff;
+    }
+
+    .no-data {
+      text-align: center;
+      color: #999;
+      padding: 30px;
+      font-style: italic;
+    }
+
+    .loading {
+      text-align: center;
+      color: white;
+      font-size: 1.2em;
+      margin: 20px 0;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+      }
+      to {
+        opacity: 1;
+      }
+    }
+
+    @keyframes slideDown {
+      from {
+        opacity: 0;
+        transform: translateY(-20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @media (max-width: 768px) {
+      h1 {
+        font-size: 1.8em;
+      }
+      
+      .sensor-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+  </style>
 </head>
 <body>
-  <h1>🌡️ Dashboard Monitoring DHT22</h1>
-  <div class="cards">
-    <div class="card">
-      <h2>Suhu</h2>
-      <div id="suhu" class="value">-- °C</div>
+  <div class="container">
+    <h1>🌡️ IoT Sensor Dashboard</h1>
+    
+    <div class="controls">
+      <button id="refreshBtn">🔄 Refresh All</button>
     </div>
-    <div class="card">
-      <h2>Kelembapan</h2>
-      <div id="kelembapan" class="value">-- %</div>
+
+    <div class="table-card">
+      <h2>📜 Historical Data</h2>
+      <table id="tbl">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>🌡️ Suhu</th>
+            <th>💧 Humidity</th>
+            <th>💡 Lux</th>
+            <th>🕐 Timestamp</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td colspan="5" class="no-data">Loading data...</td></tr>
+        </tbody>
+      </table>
     </div>
   </div>
 
-  <script src="script.js"></script>
+  <script>
+    async function loadAll() {
+      try {
+        const resp = await fetch('/data_sensor');
+        const data = await resp.json();
+        const tbody = document.querySelector('#tbl tbody');
+        tbody.innerHTML = '';
+        
+        if (data.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5" class="no-data">Tidak ada data tersedia</td></tr>';
+          return;
+        }
+        
+        data.forEach(r => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${r.id}</td>
+            <td>${r.suhu} °C</td>
+            <td>${r.humidity}%</td>
+            <td>${r.lux}</td>
+            <td>${r.timestamp}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      } catch (err) {
+        console.error('Error loading data:', err);
+        document.querySelector('#tbl tbody').innerHTML = 
+          '<tr><td colspan="5" class="no-data">Error loading data</td></tr>';
+      }
+    }
+
+    async function loadLatest() {
+      try {
+        const resp = await fetch('/data_sensor/latest');
+        const r = await resp.json();
+        const el = document.getElementById('latest');
+        
+        if (!r || !r.id) {
+          el.innerHTML = '<div class="no-data">Tidak ada data tersedia</div>';
+          return;
+        }
+        
+        el.innerHTML = `
+          <div class="sensor-grid">
+            <div class="sensor-item">
+              <div class="sensor-label">Temperature</div>
+              <div class="sensor-value">${r.suhu}<span class="sensor-unit">°C</span></div>
+            </div>
+            <div class="sensor-item">
+              <div class="sensor-label">Humidity</div>
+              <div class="sensor-value">${r.humidity}<span class="sensor-unit">%</span></div>
+            </div>
+            <div class="sensor-item">
+              <div class="sensor-label">Light</div>
+              <div class="sensor-value">${r.lux}<span class="sensor-unit">lux</span></div>
+            </div>
+            <div class="sensor-item">
+              <div class="sensor-label">Last Update</div>
+              <div class="sensor-value" style="font-size: 1.2em">${r.timestamp}</div>
+            </div>
+          </div>
+        `;
+      } catch (err) {
+        console.error('Error loading latest:', err);
+        document.getElementById('latest').innerHTML = 
+          '<div class="no-data">Error loading latest data</div>';
+      }
+    }
+
+    document.getElementById('refreshBtn').addEventListener('click', () => {
+      loadAll();
+      loadLatest();
+    });
+    
+    document.getElementById('latestBtn').addEventListener('click', loadLatest);
+
+    // Auto load on open
+    loadAll();
+    loadLatest();
+  </script>
 </body>
 </html>
